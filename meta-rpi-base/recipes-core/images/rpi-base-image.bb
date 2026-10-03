@@ -28,3 +28,6 @@ IMAGE_INSTALL:append = " \
     linux-firmware-rpidistro-bcm43456 \
     wireless-regdb-static \
 "
+
+# Wi-Fi network: joins WIFI_SSID at boot. Empty (no credentials) unless WIFI_SSID / WIFI_PASSWORD are set in local.conf.
+IMAGE_INSTALL:append = " wifi-config"

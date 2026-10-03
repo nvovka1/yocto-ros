@@ -12,5 +12,6 @@ IMAGE_INSTALL:append = " \
     ros-core \
     demo-nodes-py \
     counter-demo \
+    counter-demo-service \
     ros-setup-profile \
 "

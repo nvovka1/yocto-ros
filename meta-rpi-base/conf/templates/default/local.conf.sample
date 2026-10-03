@@ -23,6 +23,12 @@ INHERIT += "rm_work"
 # Accept the license of the Pi Wi-Fi firmware (see meta-raspberrypi/docs/ipcompliance.md).
 LICENSE_FLAGS_ACCEPTED += "synaptics-killswitch"
 
+# Wi-Fi network to join at boot (wifi-config recipe). Fill in build/conf/local.conf only, never here:
+# this template is in git. Leave empty for images you publish.
+#WIFI_SSID = "MyWifi"
+#WIFI_PASSWORD = "MyPassword"
+#WIFI_COUNTRY = "UA"
+
 USER_CLASSES ?= "buildstats"
 PATCHRESOLVE = "noop"
 
