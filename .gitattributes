@@ -1,0 +1,3 @@
+# Everything here is built on Linux: keep LF line endings even when edited on Windows.
+# (The counter-demo recipe also checksums LICENSE, so CRLF would break the build.)
+* text=auto eol=lf

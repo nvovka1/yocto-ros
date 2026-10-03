@@ -1,0 +1,9 @@
+
+Images:
+    bitbake rpi-base-image       base OS: SSH, Wi-Fi, Python, tools (meta-rpi-base)
+    bitbake ros-counter-image    base OS + ROS 2 Jazzy + counter demo (meta-ros-demo)
+
+Or from the repository root: python3 build_image.py <image> [--copy-to <folder>]
+
+Output: tmp/deploy/images/raspberrypi5/
+

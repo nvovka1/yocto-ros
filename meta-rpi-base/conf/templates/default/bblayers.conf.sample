@@ -1,0 +1,21 @@
+# POKY_BBLAYERS_CONF_VERSION is increased each time build/conf/bblayers.conf
+# changes incompatibly
+POKY_BBLAYERS_CONF_VERSION = "2"
+
+BBPATH = "${TOPDIR}"
+BBFILES ?= ""
+
+# ##OEROOT## is replaced with the path to layers/poky when the build directory is created.
+BBLAYERS ?= " \
+  ##OEROOT##/meta \
+  ##OEROOT##/meta-poky \
+  ##OEROOT##/meta-yocto-bsp \
+  ##OEROOT##/../meta-openembedded/meta-oe \
+  ##OEROOT##/../meta-openembedded/meta-python \
+  ##OEROOT##/../meta-raspberrypi \
+  ##OEROOT##/../../meta-rpi-base \
+  ##OEROOT##/../meta-ros/meta-ros-common \
+  ##OEROOT##/../meta-ros/meta-ros2 \
+  ##OEROOT##/../meta-ros/meta-ros2-jazzy \
+  ##OEROOT##/../../meta-ros-demo \
+  "

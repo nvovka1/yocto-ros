@@ -1,0 +1,39 @@
+# Build configuration for Raspberry Pi 5.
+# Copied to build/conf/local.conf the first time setup-environment.sh creates the build directory.
+# What goes INTO the image lives in the image recipes (meta-rpi-base, meta-ros-demo), not here.
+
+MACHINE ??= "raspberrypi5"
+DISTRO ?= "poky"
+INIT_MANAGER = "systemd"
+
+# Image formats: compressed SD card image plus a block map for fast flashing with bmaptool.
+IMAGE_FSTYPES = "wic.xz wic.bmap"
+
+# Shared caches next to the build directory (symlink them to existing ones to reuse earlier builds).
+DL_DIR ?= "${TOPDIR}/../downloads"
+SSTATE_DIR ?= "${TOPDIR}/../sstate-cache"
+
+# About 2 GB RAM per job. ROS 2 C++ compiles are memory hungry; lower these if the build runs out of RAM.
+BB_NUMBER_THREADS ?= "8"
+PARALLEL_MAKE ?= "-j 8"
+
+# Delete each recipe's work directory after it builds to save disk space.
+INHERIT += "rm_work"
+
+# Accept the license of the Pi Wi-Fi firmware (see meta-raspberrypi/docs/ipcompliance.md).
+LICENSE_FLAGS_ACCEPTED += "synaptics-killswitch"
+
+USER_CLASSES ?= "buildstats"
+PATCHRESOLVE = "noop"
+
+BB_DISKMON_DIRS ??= "\
+    STOPTASKS,${TMPDIR},1G,100K \
+    STOPTASKS,${DL_DIR},1G,100K \
+    STOPTASKS,${SSTATE_DIR},1G,100K \
+    STOPTASKS,/tmp,100M,100K \
+    HALT,${TMPDIR},100M,1K \
+    HALT,${DL_DIR},100M,1K \
+    HALT,${SSTATE_DIR},100M,1K \
+    HALT,/tmp,10M,1K"
+
+CONF_VERSION = "2"

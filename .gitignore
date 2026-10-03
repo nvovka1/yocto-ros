@@ -1,0 +1,16 @@
+# Yocto build output and caches
+/build*/
+/downloads
+/sstate-cache
+
+# colcon output on the host
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# Editors
+.vscode/
+*.swp
+
+/docs/01-raspberry-pi-base-os.md
+/docs/02-ros2-counter-demo.md
