@@ -1,4 +1,4 @@
-# object_detector parameters. On the board: /usr/share/object_detector/config/object_detector.yaml,
+# object_detector parameters. On the board: /opt/ros/jazzy/share/object_detector/config/object_detector.yaml,
 # then `systemctl restart object-detector`.
 object_detector:
   ros__parameters:

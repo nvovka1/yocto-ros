@@ -147,7 +147,7 @@ covers. The reference is one measurement of your own object:
 
 1. Put the object 1 m from the camera.
 2. On the board run `journalctl -u object-detector -f` and read `area 0.0xyz of the frame`.
-3. Write that number to `reference_area_fraction` in `/usr/share/object_detector/config/object_detector.yaml`
+3. Write that number to `reference_area_fraction` in `/opt/ros/jazzy/share/object_detector/config/object_detector.yaml`
    (or in the source YAML before building), then run `systemctl restart object-detector`.
 
 Check it: `ros2 topic echo /object_distance`.
@@ -199,7 +199,7 @@ RP1 PWM chip under `/sys/class/pwm` by itself.
 | ≥ `far_distance_m` (2.0 m)   | `min_volume` (5 %, quiet)          |
 | nothing detected for 0.5 s   | off                                |
 
-Change these in `/usr/share/buzzer_controller/config/buzzer_controller.yaml`, then `systemctl restart buzzer-controller`.
+Change these in `/opt/ros/jazzy/share/buzzer_controller/config/buzzer_controller.yaml`, then `systemctl restart buzzer-controller`.
 `frequency_hz` sets the pitch; most passive buzzers are loudest at 2–4 kHz.
 
 Test the buzzer without the camera by publishing distances by hand:
@@ -209,6 +209,35 @@ systemctl stop object-detector
 ros2 topic pub -r 5 /object_distance std_msgs/msg/Float32 "{data: 0.3}"   # loud
 ros2 topic pub -r 5 /object_distance std_msgs/msg/Float32 "{data: 1.5}"   # quiet
 ```
+
+## Changing things: rebuild the image or not?
+
+The image has no package manager, so anything that adds or replaces **software** needs a rebuild. Anything that only
+changes **files** of what is already installed can be changed on the board directly. A change made only on the board
+is lost at the next flash, so make the same change in this repository as well.
+
+| Change                                              | Rebuild? | On the board                                                                                  |
+|-----------------------------------------------------|----------|-----------------------------------------------------------------------------------------------|
+| Parameters: calibration, volume, thresholds, pitch  | No       | Edit `/opt/ros/jazzy/share/<package>/config/<package>.yaml`, `systemctl restart <service>`    |
+| Retrained model                                     | No       | `tools/export_model.py` on the PC, copy the `.onnx` to `/opt/ros/jazzy/share/object_detector/models/my_model.onnx`, restart |
+| Python code of `object_detector` / `buzzer_controller` | No (to try it) | Copy the `.py` over the one in `/opt/ros/jazzy/lib/python3.12/site-packages/<package>/`, restart |
+| `config.txt` line using an overlay already on the boot partition | No | Edit `/boot/config.txt`, reboot                                                     |
+| New overlay (`dtoverlay=` not yet in `/boot/overlays/`) | Yes  | Add it to `RPI_KERNEL_DEVICETREE_OVERLAYS` (see `meta-buzzer/conf/layer.conf`)                |
+| New ROS package, new node, new Python or system library | Yes  |                                                                                               |
+| Kernel, libcamera, OpenCV, other recipes            | Yes      |                                                                                               |
+
+`<service>` is `object-detector` or `buzzer-controller`; `<package>` is `object_detector` or `buzzer_controller`.
+
+Copy a file from Windows to the board with `scp`, for example:
+
+```powershell
+scp ros2_ws/src/object_detector/models/my_model.onnx root@raspberrypi5.local:/opt/ros/jazzy/share/object_detector/models/
+```
+
+If `scp` fails with an SFTP error, add `-O` (the older copy protocol).
+
+Rebuilds are incremental: BitBake only rebuilds the recipes that changed (the sstate cache keeps the rest), so after
+the first build a change to our layers usually takes minutes, not hours.
 
 ## Troubleshooting
 

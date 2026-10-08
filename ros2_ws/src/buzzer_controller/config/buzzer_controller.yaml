@@ -1,4 +1,4 @@
-# buzzer_controller parameters. On the board: /usr/share/buzzer_controller/config/buzzer_controller.yaml,
+# buzzer_controller parameters. On the board: /opt/ros/jazzy/share/buzzer_controller/config/buzzer_controller.yaml,
 # then `systemctl restart buzzer-controller`.
 buzzer_controller:
   ros__parameters:
