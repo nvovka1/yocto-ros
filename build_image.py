@@ -4,6 +4,7 @@
 Examples (run inside WSL / Linux, from anywhere):
     python3 build_image.py                       # list the images you can build
     python3 build_image.py ros-counter-image     # base OS + ROS 2 + counter demo
+    python3 build_image.py ros-buzzer-image      # + camera object detection + distance buzzer
     python3 build_image.py rpi-base-image        # base OS only (the previous Raspberry Pi image)
     python3 build_image.py ros-counter-image --copy-to /mnt/c/Users/me/Downloads
 
@@ -24,6 +25,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent
 IMAGES = {
     'rpi-base-image': 'Base OS: SSH, Wi-Fi, Python, tools (meta-rpi-base)',
     'ros-counter-image': 'Base OS + ROS 2 Jazzy + counter demo (meta-ros-demo)',
+    'ros-detection-image': 'ros-counter-image + camera object detection (meta-object-detection)',
+    'ros-buzzer-image': 'ros-detection-image + distance buzzer on GPIO 12 (meta-buzzer)',
 }
 
 
@@ -38,7 +41,7 @@ def parse_arguments():
 def print_images():
     print('Images you can build:')
     for image, description in IMAGES.items():
-        print(f'  {image:<20} {description}')
+        print(f'  {image:<21} {description}')
     print('\nUsage: python3 build_image.py <image> [--copy-to <folder>]')
 
 

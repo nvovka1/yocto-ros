@@ -1,0 +1,98 @@
+"""Detect the trained object in the camera image and publish its estimated distance on /object_distance.
+
+Only frames that contain the object produce a message; when it leaves the frame the messages stop, and
+listeners (buzzer_controller) treat silence as "nothing detected".
+"""
+
+import os
+
+import rclpy
+from ament_index_python.packages import get_package_share_directory
+from rclpy.executors import ExternalShutdownException
+from rclpy.node import Node
+from std_msgs.msg import Float32
+
+from object_detector.distance_estimator import DistanceEstimator
+from object_detector.frame_source import DEFAULT_CAMERA_PIPELINE, open_source
+from object_detector.yolo_detector import YoloDetector
+
+
+def default_model_path():
+    return os.path.join(get_package_share_directory('object_detector'), 'models', 'my_model.onnx')
+
+
+def closest_target(detections, target_class):
+    """The biggest box of `target_class` (any class when it is empty): the biggest box is the closest object."""
+    targets = [detection for detection in detections if not target_class or detection.class_name == target_class]
+    return max(targets, key=lambda detection: detection.area, default=None)
+
+
+class ObjectDetectorNode(Node):
+
+    def __init__(self):
+        super().__init__('object_detector')
+
+        # Defaults match config/object_detector.yaml, which the launch file loads.
+        source = self.declare_parameter('source', 'camera').value
+        camera_pipeline = self.declare_parameter('camera_pipeline', DEFAULT_CAMERA_PIPELINE).value
+        self.frame_width = self.declare_parameter('frame_width', 640).value
+        self.frame_height = self.declare_parameter('frame_height', 480).value
+        model_path = self.declare_parameter('model_path', '').value or default_model_path()
+        class_names = self.declare_parameter('class_names', ['bibi']).value
+        self.target_class = self.declare_parameter('target_class', 'bibi').value
+        input_size = self.declare_parameter('input_size', 640).value
+        confidence_threshold = self.declare_parameter('confidence_threshold', 0.5).value
+        nms_threshold = self.declare_parameter('nms_threshold', 0.45).value
+        reference_distance_m = self.declare_parameter('reference_distance_m', 1.0).value
+        reference_area_fraction = self.declare_parameter('reference_area_fraction', 0.05).value
+        period_ms = self.declare_parameter('period_ms', 100).value
+
+        self.detector = YoloDetector(model_path, class_names, input_size, confidence_threshold, nms_threshold)
+        self.distance_estimator = DistanceEstimator(reference_distance_m, reference_area_fraction)
+        self.source = open_source(source, self.frame_width, self.frame_height, camera_pipeline)
+
+        self.publisher = self.create_publisher(Float32, 'object_distance', 10)
+        # Inference takes longer than the period on a Pi, so in practice this runs as fast as the model allows.
+        self.timer = self.create_timer(period_ms / 1000.0, self.process_next_frame)
+
+        self.get_logger().info(
+            f'Detecting "{self.target_class or "any class"}" with {model_path} '
+            f'({self.frame_width}x{self.frame_height} from {source})')
+
+    def process_next_frame(self):
+        frame = self.source.read()
+        target = closest_target(self.detector.detect(frame), self.target_class)
+        if target is None:
+            return
+
+        frame_height, frame_width = frame.shape[:2]
+        area_fraction = target.area / (frame_width * frame_height)
+        message = Float32()
+        message.data = self.distance_estimator.estimate(area_fraction)
+        self.publisher.publish(message)
+
+        # The area is what you need for calibration (reference_area_fraction), so it is always logged.
+        self.get_logger().info(
+            f'{target.class_name} {target.confidence:.2f}: area {area_fraction:.4f} of the frame, '
+            f'distance {message.data:.2f} m',
+            throttle_duration_sec=1.0)
+
+    def destroy_node(self):
+        self.source.close()
+        super().destroy_node()
+
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = ObjectDetectorNode()
+    try:
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        node.destroy_node()
+        rclpy.try_shutdown()
+
+
+if __name__ == '__main__':
+    main()

@@ -18,4 +18,6 @@ BBLAYERS ?= " \
   ##OEROOT##/../meta-ros/meta-ros2 \
   ##OEROOT##/../meta-ros/meta-ros2-jazzy \
   ##OEROOT##/../../meta-ros-demo \
+  ##OEROOT##/../../meta-object-detection \
+  ##OEROOT##/../../meta-buzzer \
   "

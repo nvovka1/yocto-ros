@@ -14,3 +14,6 @@ ros2_ws/log/
 
 /docs/01-raspberry-pi-base-os.md
 /docs/02-ros2-counter-demo.md
+
+# Python bytecode (tests on the host)
+__pycache__/

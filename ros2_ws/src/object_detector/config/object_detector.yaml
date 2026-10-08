@@ -1,0 +1,26 @@
+# object_detector parameters. On the board: /usr/share/object_detector/config/object_detector.yaml,
+# then `systemctl restart object-detector`.
+object_detector:
+  ros__parameters:
+    # "camera", or "file:<image or folder>" to test without a camera.
+    source: camera
+    # 640x480 keeps CPU and memory low on a 2 GB Pi 5; the model input is 640x640 anyway.
+    frame_width: 640
+    frame_height: 480
+
+    # Empty = models/my_model.onnx from this package. class_names must be in the model's class order.
+    model_path: ""
+    class_names: [bibi]
+    # Distance is published for this class only; empty = any class.
+    target_class: bibi
+    # Image size the model was trained and exported with (imgsz).
+    input_size: 640
+    confidence_threshold: 0.5
+    nms_threshold: 0.45
+
+    # Distance calibration: put the object reference_distance_m away from the camera, read
+    # "area ... of the frame" from the log (journalctl -u object-detector -f) and write it here.
+    reference_distance_m: 1.0
+    reference_area_fraction: 0.05
+
+    period_ms: 100

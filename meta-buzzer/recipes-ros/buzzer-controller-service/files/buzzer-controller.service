@@ -1,0 +1,16 @@
+[Unit]
+Description=ROS 2 buzzer controller (/object_distance -> buzzer on GPIO 12)
+After=network.target
+
+[Service]
+Type=simple
+# systemd services get no login environment: give ROS a home and a log folder, then load the ROS setup.
+Environment=HOME=/root
+Environment=ROS_LOG_DIR=/var/log/ros
+ExecStart=/bin/sh -c '. /etc/profile.d/ros-setup.sh && exec ros2 launch buzzer_controller buzzer_controller.launch.py'
+# ros2 launch exits with 0 even when its node crashed, so restart on any exit.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

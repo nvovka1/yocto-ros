@@ -1,0 +1,19 @@
+# buzzer_controller parameters. On the board: /usr/share/buzzer_controller/config/buzzer_controller.yaml,
+# then `systemctl restart buzzer-controller`.
+buzzer_controller:
+  ros__parameters:
+    # false = no hardware, only log the volume (useful on the PC).
+    enabled: true
+    # -1 = find the Raspberry Pi 5 RP1 PWM chip automatically. Channel 0 = GPIO 12 (physical pin 32).
+    pwm_chip: -1
+    pwm_channel: 0
+    # Tone pitch. Most passive buzzers are loudest around 2-4 kHz.
+    frequency_hz: 2000.0
+
+    # Full volume closer than near_distance_m, min_volume beyond far_distance_m, a straight line between.
+    near_distance_m: 0.3
+    far_distance_m: 2.0
+    min_volume: 0.05
+
+    # Silence when no distance has arrived for this long (the object left the frame).
+    silence_after_ms: 500

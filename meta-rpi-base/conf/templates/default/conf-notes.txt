@@ -2,6 +2,8 @@
 Images:
     bitbake rpi-base-image       base OS: SSH, Wi-Fi, Python, tools (meta-rpi-base)
     bitbake ros-counter-image    base OS + ROS 2 Jazzy + counter demo (meta-ros-demo)
+    bitbake ros-detection-image  + camera object detection, publishes /object_distance (meta-object-detection)
+    bitbake ros-buzzer-image     + buzzer on GPIO 12, louder when the object is closer (meta-buzzer)
 
 Or from the repository root: python3 build_image.py <image> [--copy-to <folder>]
 
