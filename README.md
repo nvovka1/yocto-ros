@@ -222,3 +222,42 @@ ros2 topic pub -r 5 /object_distance std_msgs/msg/Float32 "{data: 1.5}"   # quie
 | Distance is wrong                               | Redo the calibration (`reference_area_fraction`)                     |
 | `No PWM chip for 1f00098000.pwm`                | `grep pwm /boot/config.txt`; `ls -l /sys/class/pwm/`; set `pwm_chip` by hand |
 | Buzzer clicks but has no tone / no volume change| It is an active buzzer; use a passive one                             |
+
+## Raspberry Pi 5 pitfalls
+
+The first image built fine but neither the camera nor the buzzer worked on the board. Five separate problems, each
+hiding the next one. The fixes are in the layers and code; this is why they are there, so they are not "simplified" away.
+
+1. **libcamera did not recognise the camera.** The kernel saw it (`imx219` driver loaded), but `cam --list` was empty
+   and `LIBCAMERA_LOG_LEVELS=*:DEBUG cam --list` said `Unable to acquire a CFE instance`. Upstream libcamera (the
+   recipe in meta-ros) looks for the camera device nodes by their **mainline kernel** names, `rp1-cfe-fe-config`
+   (hyphens). The Raspberry Pi 6.6 kernel calls them `rp1-cfe-fe_config` (underscores), so nothing matched.
+   *Fix:* `meta-object-detection/recipes-multimedia/libcamera/libcamera_%.bbappend` builds Raspberry Pi's libcamera fork,
+   the one Raspberry Pi OS uses and the reason the camera worked there. Keep libcamera and the kernel matched: a newer
+   kernel with the mainline driver would need upstream libcamera again.
+
+2. **The camera delivered raw sensor data.** With the camera found, the GStreamer pipeline stopped with
+   `not-negotiated`. Without a pixel format in the caps, `libcamerasrc` offered the sensor's raw Bayer stream
+   (`SBGGR16`), which `videoconvert` cannot turn into an image.
+   *Fix:* `DEFAULT_CAMERA_PIPELINE` in `frame_source.py` asks for `format=BGR`. The Pi 5 ISP then delivers finished
+   colour frames, already in OpenCV's channel order.
+
+3. **The PWM pin was never switched on.** `config.txt` had `dtoverlay=pwm-2chan,...`, but meta-raspberrypi only copies
+   the overlays listed in `RPI_KERNEL_DEVICETREE_OVERLAYS` onto the boot partition, and `pwm-2chan.dtbo` is not in its
+   list. The firmware skips an overlay it cannot find without any error, so no PWM device appeared.
+   *Fix:* `meta-buzzer/conf/layer.conf` appends `overlays/pwm-2chan.dtbo` to that list. Any new `dtoverlay=` line
+   needs the same.
+
+4. **PWM settings written in the wrong order.** A freshly exported PWM channel has `period = 0`, and the kernel rejects
+   every write (`EINVAL`) while the period is 0 or shorter than the duty cycle. The code set `duty_cycle` first.
+   The unit tests did not notice because their fake sysfs accepted anything.
+   *Fix:* `SysfsPwmBuzzer` writes the period first. The tests' fake sysfs now rejects writes the way the kernel does.
+
+5. **Crashed services were not restarted.** `ros2 launch` exits with status 0 even when its node crashed, so
+   `Restart=on-failure` never fired and the services stayed dead after the first error.
+   *Fix:* `Restart=always` in `object-detector.service` and `buzzer-controller.service`.
+
+Problems 1 and 2 only exist on real hardware, and 3 and 4 only show on the board, so debug them there:
+`ssh root@<board>`, `journalctl -u <service>`, `cam --list`, `ls -l /sys/class/pwm/`. To try a Python fix without
+rebuilding the image, copy the file over the installed one under `/opt/ros/jazzy/lib/python3.12/site-packages/<package>/`
+and run `systemctl restart <service>`. Then put the fix in the source and rebuild.
