@@ -1,10 +1,30 @@
 """Unit tests for the sysfs PWM buzzer, against a fake /sys/class/pwm in a temporary folder."""
 
+import errno
 import os
 
 import pytest
 
 from buzzer_controller.pwm_buzzer import BuzzerError, SysfsPwmBuzzer, duty_cycle_for, find_pwm_chip
+
+ORIGINAL_WRITE = SysfsPwmBuzzer._write
+
+
+@pytest.fixture(autouse=True)
+def kernel_pwm_rules(monkeypatch):
+    """Reject writes the way the kernel does: nothing while the period is 0, no duty cycle longer than the period."""
+    def checked_write(buzzer, attribute, value):
+        period = int(buzzer._read('period'))
+        duty_cycle = int(buzzer._read('duty_cycle'))
+        if attribute == 'period':
+            period = int(value)
+        elif attribute == 'duty_cycle':
+            duty_cycle = int(value)
+        if attribute in ('period', 'duty_cycle') and (period == 0 or duty_cycle > period):
+            raise OSError(errno.EINVAL, 'Invalid argument')
+        ORIGINAL_WRITE(buzzer, attribute, value)
+
+    monkeypatch.setattr(SysfsPwmBuzzer, '_write', checked_write)
 
 
 def make_chip(sysfs_root, name, device_name):
@@ -62,6 +82,17 @@ def test_starts_silent_with_the_tone_period(tmp_path):
     assert (channel_path / 'period').read_text() == '500000'
     assert (channel_path / 'duty_cycle').read_text() == '0'
     assert (channel_path / 'enable').read_text() == '1'
+
+
+def test_takes_over_a_channel_left_with_a_long_duty_cycle(tmp_path):
+    channel_path = make_channel(tmp_path, 0)
+    (channel_path / 'period').write_text('1000000')
+    (channel_path / 'duty_cycle').write_text('900000')
+
+    SysfsPwmBuzzer(tmp_path, 0, frequency_hz=2000)
+
+    assert (channel_path / 'period').read_text() == '500000'
+    assert (channel_path / 'duty_cycle').read_text() == '0'
 
 
 def test_full_volume_is_half_the_period(tmp_path):

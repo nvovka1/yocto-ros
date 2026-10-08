@@ -52,10 +52,13 @@ class SysfsPwmBuzzer:
         self._export_channel()
 
         self._period_ns = round(1e9 / frequency_hz)
-        # The duty cycle may never exceed the period, so start from 0 before changing the period.
+        # The kernel rejects a duty cycle longer than the period, and any write while the period is 0 (a freshly
+        # exported channel). So set the period first, unless a duty cycle left by an earlier run would not fit in it.
+        if int(self._read('duty_cycle')) > self._period_ns:
+            self._write('duty_cycle', 0)
+        self._write('period', self._period_ns)
         self._duty_cycle_ns = 0
         self._write('duty_cycle', 0)
-        self._write('period', self._period_ns)
         self._write('enable', 1)
 
     def set_volume(self, volume):
@@ -82,6 +85,9 @@ class SysfsPwmBuzzer:
             if time.monotonic() > deadline:
                 raise BuzzerError(f'{self._channel_path} did not appear after export')
             time.sleep(0.01)
+
+    def _read(self, attribute):
+        return (self._channel_path / attribute).read_text().strip()
 
     def _write(self, attribute, value):
         (self._channel_path / attribute).write_text(str(value))

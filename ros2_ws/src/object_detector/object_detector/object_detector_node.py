@@ -5,6 +5,7 @@ listeners (buzzer_controller) treat silence as "nothing detected".
 """
 
 import os
+import time
 
 import rclpy
 from ament_index_python.packages import get_package_share_directory
@@ -15,6 +16,8 @@ from std_msgs.msg import Float32
 from object_detector.distance_estimator import DistanceEstimator
 from object_detector.frame_source import DEFAULT_CAMERA_PIPELINE, open_source
 from object_detector.yolo_detector import YoloDetector
+
+STATISTICS_PERIOD_S = 10.0
 
 
 def default_model_path():
@@ -55,6 +58,10 @@ class ObjectDetectorNode(Node):
         # Inference takes longer than the period on a Pi, so in practice this runs as fast as the model allows.
         self.timer = self.create_timer(period_ms / 1000.0, self.process_next_frame)
 
+        # Frame rate, logged every STATISTICS_PERIOD_S so the speed of the model on this board is visible.
+        self.frames_since_statistics = 0
+        self.statistics_started_at = time.monotonic()
+
         self.get_logger().info(
             f'Detecting "{self.target_class or "any class"}" with {model_path} '
             f'({self.frame_width}x{self.frame_height} from {source})')
@@ -62,6 +69,7 @@ class ObjectDetectorNode(Node):
     def process_next_frame(self):
         frame = self.source.read()
         target = closest_target(self.detector.detect(frame), self.target_class)
+        self.log_frame_rate()
         if target is None:
             return
 
@@ -76,6 +84,14 @@ class ObjectDetectorNode(Node):
             f'{target.class_name} {target.confidence:.2f}: area {area_fraction:.4f} of the frame, '
             f'distance {message.data:.2f} m',
             throttle_duration_sec=1.0)
+
+    def log_frame_rate(self):
+        self.frames_since_statistics += 1
+        elapsed_s = time.monotonic() - self.statistics_started_at
+        if elapsed_s >= STATISTICS_PERIOD_S:
+            self.get_logger().info(f'{self.frames_since_statistics / elapsed_s:.1f} frames/s')
+            self.frames_since_statistics = 0
+            self.statistics_started_at = time.monotonic()
 
     def destroy_node(self):
         self.source.close()

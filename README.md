@@ -41,8 +41,8 @@ yocto-ros/
 │   └── recipes-ros/                 counter-demo (our nodes), ros-setup-profile (ROS env on login)
 ├── meta-object-detection/           our layer: camera + object detection
 │   ├── recipes-core/images/         ros-detection-image.bb (= ros-counter-image + detector)
-│   ├── recipes-multimedia/          libpisp (Pi 5 ISP library), libcamera bbappend (Pi 5 pipeline, GStreamer element)
-│   ├── recipes-bsp/bootfiles/       rpi-config bbappend: camera_auto_detect=1
+│   ├── recipes-multimedia/          libpisp (Pi 5 ISP library), libcamera bbappend (Raspberry Pi fork, GStreamer element)
+│   ├── recipes-bsp/bootfiles/       rpi-config bbappend: dtoverlay=imx219 (camera on CAM/DISP 1)
 │   └── recipes-ros/                 object-detector (the node), object-detector-service (starts it at boot)
 ├── meta-buzzer/                     our layer: distance buzzer
 │   ├── recipes-core/images/         ros-buzzer-image.bb (= ros-detection-image + buzzer)
@@ -114,13 +114,20 @@ Ready-made images are attached to [GitHub Releases](https://github.com/nvovka1/y
 
 ## Object detection (`meta-object-detection`)
 
-The camera is the one from the face-recognition project: a Raspberry Pi camera (IMX219) on either CSI port of the
-Pi 5. The firmware finds it on its own (`camera_auto_detect=1`).
+The camera is the one from the face-recognition project: a Raspberry Pi Camera v2 (IMX219) on the **CAM/DISP 1**
+connector of the Pi 5 (`dtoverlay=imx219` in `config.txt`). For CAM/DISP 0, change the overlay to `imx219,cam0`.
+
+libcamera is **Raspberry Pi's fork** (`v0.5.2+rpt20250903`, as in Raspberry Pi OS), not upstream libcamera: upstream
+expects the camera device names of the mainline kernel and finds no camera with the Raspberry Pi 6.6 kernel. OpenCV
+reads the camera through libcamera's GStreamer element (`libcamerasrc`), asking for BGR frames from the Pi 5 ISP.
 
 The model is our own YOLO11n, trained with Ultralytics (`my_model.pt`, one class: `bibi`, 640 px). PyTorch does not
 run on the image, so the model is shipped as ONNX (`ros2_ws/src/object_detector/models/my_model.onnx`) and run by
-OpenCV's DNN module. The ONNX export gives the same boxes and scores as Ultralytics itself. YOLO11n is small enough
-for a 2 GB Pi 5; expect a few frames per second on the CPU. The capture is 640×480 to keep CPU and memory low.
+OpenCV's DNN module. The ONNX export gives the same boxes and scores as Ultralytics itself.
+
+Measured on a Raspberry Pi 5 with 2 GB: about **5 frames/s**, and about 450 MB of RAM used for the whole system
+(`ros2`, both nodes, the model). The node logs its frame rate every 10 s (`journalctl -u object-detector -f`).
+Ultralytics' NCNN export would be faster on the Pi, but needs NCNN recipes that no layer provides yet.
 
 After retraining, export the new model on the PC and rebuild the image:
 
@@ -208,6 +215,9 @@ ros2 topic pub -r 5 /object_distance std_msgs/msg/Float32 "{data: 1.5}"   # quie
 | Problem                                         | Check                                                                 |
 |-------------------------------------------------|-----------------------------------------------------------------------|
 | `object-detector` keeps restarting              | `journalctl -u object-detector`; `cam --list` must show the camera (ribbon cable, port) |
+| `cam --list` shows no cameras                   | `dmesg \| grep -iE "imx219\|cfe"`: no `imx219` line = cable/port (CAM/DISP 1, contacts facing the right way) |
+| `cam --list` shows no cameras, `imx219` is in `dmesg` | `LIBCAMERA_LOG_LEVELS=*:DEBUG cam --list`; "Unable to acquire a CFE instance" = upstream libcamera instead of the Raspberry Pi fork |
+| `libcamerasrc ... not-negotiated`               | The camera pipeline must ask for a processed format (`format=BGR`); without one it gets the raw Bayer stream |
 | No `/object_distance` messages                  | Object not recognised: lower `confidence_threshold`, check the light  |
 | Distance is wrong                               | Redo the calibration (`reference_area_fraction`)                     |
 | `No PWM chip for 1f00098000.pwm`                | `grep pwm /boot/config.txt`; `ls -l /sys/class/pwm/`; set `pwm_chip` by hand |

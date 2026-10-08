@@ -9,10 +9,12 @@ import os
 
 import cv2
 
-# {width} and {height} are filled in from the node parameters.
+# {width} and {height} are filled in from the node parameters. The format must be given: without it libcamerasrc
+# offers the sensor's raw Bayer stream, which nothing downstream can convert ("not-negotiated"). The Pi 5 ISP
+# produces BGR (OpenCV's own order) directly, so videoconvert has nothing to do.
 DEFAULT_CAMERA_PIPELINE = (
-    'libcamerasrc ! video/x-raw,width={width},height={height} ! videoconvert ! video/x-raw,format=BGR ! '
-    'appsink drop=true max-buffers=1 sync=false'
+    'libcamerasrc ! video/x-raw,format=BGR,width={width},height={height} ! videoconvert ! '
+    'video/x-raw,format=BGR ! appsink drop=true max-buffers=1 sync=false'
 )
 
 
