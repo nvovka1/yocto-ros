@@ -15,6 +15,7 @@ from std_msgs.msg import Float32
 
 from object_detector.distance_estimator import DistanceEstimator
 from object_detector.frame_source import DEFAULT_CAMERA_PIPELINE, open_source
+from object_detector.preview_server import PreviewServer, draw_detections
 from object_detector.yolo_detector import YoloDetector
 
 STATISTICS_PERIOD_S = 10.0
@@ -49,6 +50,7 @@ class ObjectDetectorNode(Node):
         reference_distance_m = self.declare_parameter('reference_distance_m', 1.0).value
         reference_area_fraction = self.declare_parameter('reference_area_fraction', 0.05).value
         period_ms = self.declare_parameter('period_ms', 100).value
+        preview_port = self.declare_parameter('preview_port', 8080).value
 
         self.detector = YoloDetector(model_path, class_names, input_size, confidence_threshold, nms_threshold)
         self.distance_estimator = DistanceEstimator(reference_distance_m, reference_area_fraction)
@@ -61,6 +63,12 @@ class ObjectDetectorNode(Node):
         # Frame rate, logged every STATISTICS_PERIOD_S so the speed of the model on this board is visible.
         self.frames_since_statistics = 0
         self.statistics_started_at = time.monotonic()
+        self.frames_per_second = 0.0
+
+        # Live view in a browser (preview_server.py); 0 turns it off.
+        self.preview = PreviewServer(preview_port) if preview_port else None
+        if self.preview is not None:
+            self.get_logger().info(f'Live view: http://<board address>:{self.preview.port}')
 
         self.get_logger().info(
             f'Detecting "{self.target_class or "any class"}" with {model_path} '
@@ -68,32 +76,39 @@ class ObjectDetectorNode(Node):
 
     def process_next_frame(self):
         frame = self.source.read()
-        target = closest_target(self.detector.detect(frame), self.target_class)
+        detections = self.detector.detect(frame)
+        target = closest_target(detections, self.target_class)
         self.log_frame_rate()
-        if target is None:
-            return
 
-        frame_height, frame_width = frame.shape[:2]
-        area_fraction = target.area / (frame_width * frame_height)
-        message = Float32()
-        message.data = self.distance_estimator.estimate(area_fraction)
-        self.publisher.publish(message)
+        distance_m = None
+        if target is not None:
+            frame_height, frame_width = frame.shape[:2]
+            area_fraction = target.area / (frame_width * frame_height)
+            distance_m = self.distance_estimator.estimate(area_fraction)
+            self.publisher.publish(Float32(data=distance_m))
 
-        # The area is what you need for calibration (reference_area_fraction), so it is always logged.
-        self.get_logger().info(
-            f'{target.class_name} {target.confidence:.2f}: area {area_fraction:.4f} of the frame, '
-            f'distance {message.data:.2f} m',
-            throttle_duration_sec=1.0)
+            # The area is what you need for calibration (reference_area_fraction), so it is always logged.
+            self.get_logger().info(
+                f'{target.class_name} {target.confidence:.2f}: area {area_fraction:.4f} of the frame, '
+                f'distance {distance_m:.2f} m',
+                throttle_duration_sec=1.0)
+
+        if self.preview is not None and self.preview.has_viewers:
+            status = f'{self.frames_per_second:.1f} frames/s' if self.frames_per_second else ''
+            self.preview.publish(draw_detections(frame, detections, target, distance_m, status))
 
     def log_frame_rate(self):
         self.frames_since_statistics += 1
         elapsed_s = time.monotonic() - self.statistics_started_at
         if elapsed_s >= STATISTICS_PERIOD_S:
-            self.get_logger().info(f'{self.frames_since_statistics / elapsed_s:.1f} frames/s')
+            self.frames_per_second = self.frames_since_statistics / elapsed_s
+            self.get_logger().info(f'{self.frames_per_second:.1f} frames/s')
             self.frames_since_statistics = 0
             self.statistics_started_at = time.monotonic()
 
     def destroy_node(self):
+        if self.preview is not None:
+            self.preview.close()
         self.source.close()
         super().destroy_node()
 

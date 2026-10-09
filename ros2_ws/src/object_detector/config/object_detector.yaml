@@ -24,3 +24,7 @@ object_detector:
     reference_area_fraction: 0.05
 
     period_ms: 100
+
+    # Live camera view with the detections boxed: http://raspberrypi5.local:8080 in a browser.
+    # No login: anyone on the network can watch. 0 turns it off.
+    preview_port: 8080

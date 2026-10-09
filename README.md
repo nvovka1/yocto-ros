@@ -160,6 +160,16 @@ Check it: `ros2 topic echo /object_distance`.
 | `confidence_threshold`             | 0.5      | ignore weaker detections                                 |
 | `reference_distance_m`             | 1.0      | distance calibration (see above)                         |
 | `reference_area_fraction`          | 0.05     | distance calibration (see above)                         |
+| `preview_port`                     | 8080     | live view in the browser (see below); 0 = off            |
+
+### Live view
+
+Open **http://raspberrypi5.local:8080** in a browser on any device in the same network: the camera image with a box
+around every detection. The object the distance is measured to is green and labelled with its confidence and distance
+(`bibi 0.81  0.62 m`); other detections are gray. The frame rate is shown in the bottom-left corner.
+
+The image is only drawn and encoded while the page is open, so the live view costs nothing otherwise. There is no
+login: anyone on the network can watch. Set `preview_port: 0` to turn it off.
 
 ## Buzzer (`meta-buzzer`)
 
