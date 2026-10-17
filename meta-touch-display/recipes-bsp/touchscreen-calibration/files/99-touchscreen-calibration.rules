@@ -1,0 +1,5 @@
+# 3.5" ADS7846 touch screen: the sensor never reports values near its edges (measured on the board: about 330-3800
+# across and 410-3680 down, out of 0-4095), so the outer edge of the screen could not be tapped, e.g. a window's close
+# button. This libinput calibration matrix stretches the measured range onto the whole screen:
+#   x' = 1.077 x - 0.030    y' = 1.152 y - 0.075    (normalised 0..1, after the overlay's invx)
+ACTION=="add|change", KERNEL=="event*", ATTRS{name}=="ADS7846 Touchscreen", ENV{LIBINPUT_CALIBRATION_MATRIX}="1.077 0 -0.030 0 1.152 -0.075"

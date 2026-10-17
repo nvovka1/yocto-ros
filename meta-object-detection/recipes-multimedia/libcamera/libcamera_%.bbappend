@@ -13,6 +13,10 @@ PV:raspberrypi5 = "0.5.2+rpt20250903"
 # The default ("auto") also tries rpi/pisp, but would download libpisp at configure time and fail.
 LIBCAMERA_PIPELINES:raspberrypi5 = "rpi/pisp"
 DEPENDS:append:raspberrypi5 = " libpisp"
+# meta-raspberrypi's own libcamera bbappend (dynamic-layers/multimedia-layer, active as soon as meta-multimedia is in
+# bblayers.conf, e.g. for GNOME) adds PACKAGECONFIG "raspberrypi" = -Dpipelines=rpi/vc4: the Pi 4 pipeline only, which
+# overrides the line above and leaves the Pi 5 with "Could not find any supported camera".
+PACKAGECONFIG:remove:raspberrypi5 = "raspberrypi"
 
 # libcamerasrc, the GStreamer element OpenCV reads the camera through (package libcamera-gst).
 PACKAGECONFIG:append = " gst"

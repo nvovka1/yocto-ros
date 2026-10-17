@@ -6,6 +6,10 @@ MACHINE ??= "raspberrypi5"
 DISTRO ?= "poky"
 INIT_MANAGER = "systemd"
 
+# GNOME (meta-touch-display) needs polkit and PAM. These are global: every image built in this build directory
+# gets them, and changing them rebuilds the packages that depend on them.
+DISTRO_FEATURES:append = " polkit pam"
+
 # Image formats: compressed SD card image plus a block map for fast flashing with bmaptool.
 IMAGE_FSTYPES = "wic.xz wic.bmap"
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Camera
+Comment=Live camera view with object detection
+Exec=detection-camera
+Icon=io.github.nvovka1.DetectionCamera
+Terminal=false
+Categories=Video;
+StartupNotify=true

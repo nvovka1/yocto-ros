@@ -11,6 +11,9 @@ A custom Yocto (**scarthgap**) Linux for **Raspberry Pi 5**, with **ROS 2 Jazzy*
   `/object_distance`.
 - **Buzzer** (`meta-buzzer`): `buzzer_controller`, which listens to `/object_distance` and sounds a buzzer on
   GPIO 12, loud when the object is close and quieter the farther away it is. It goes silent when nothing is detected.
+- **Touch screen** (`meta-touch-display`): GNOME on the Pi's 3.5" SPI touch screen, logged in automatically, with a
+  **Camera** app in the dash that shows the live camera frame with the detection boxes. Built on the detection image,
+  without the buzzer.
 
 ```
 camera ──> object_detector ──/object_distance (metres)──> buzzer_controller ──PWM──> buzzer (GPIO 12)
@@ -48,6 +51,12 @@ yocto-ros/
 │   ├── recipes-core/images/         ros-buzzer-image.bb (= ros-detection-image + buzzer)
 │   ├── recipes-bsp/bootfiles/       rpi-config bbappend: hardware PWM on GPIO 12/13
 │   └── recipes-ros/                 buzzer-controller (the node), buzzer-controller-service (starts it at boot)
+├── meta-touch-display/              our layer: GNOME on the 3.5" touch screen + Camera app (see its README)
+│   ├── recipes-core/images/         ros-touch-display-image.bb (= ros-detection-image + GNOME + Camera app)
+│   ├── recipes-bsp/bootfiles/       rpi-config bbappend: SPI + dtoverlay=piscreen,drm (the screen)
+│   ├── recipes-gnome/               GDM automatic login; GNOME parts left out (NetworkManager, Settings, ...)
+│   └── recipes-apps/                detection-camera (the Camera app)
+├── apps/detection_camera/           the Camera app (Python + GTK 4), tested on the PC with pytest
 ├── ros2_ws/src/
 │   ├── counter_demo/                ROS 2 Python packages, built with colcon on the PC and by BitBake for the image
 │   ├── object_detector/             (models/my_model.onnx is the trained model)
@@ -67,6 +76,7 @@ Each image is the previous one plus one layer.
 | `ros-counter-image`   | `meta-ros-demo`         | Base OS + ROS 2 + counter demo                    |
 | `ros-detection-image` | `meta-object-detection` | + camera and `object_detector`                    |
 | `ros-buzzer-image`    | `meta-buzzer`           | + `buzzer_controller` (the full system)           |
+| `ros-touch-display-image` | `meta-touch-display` | `ros-detection-image` + GNOME on the 3.5" touch screen + Camera app (no buzzer) |
 
 ## Nodes
 
@@ -100,6 +110,15 @@ copied once). Add the two layers to it once:
 ```bash
 source ./setup-environment.sh
 bitbake-layers add-layer ../meta-object-detection ../meta-buzzer
+```
+
+For `ros-touch-display-image`, also add the GNOME layers and ours, and append
+`DISTRO_FEATURES:append = " polkit pam"` to `build/conf/local.conf` (GNOME needs both; every image in that build
+directory gets them):
+
+```bash
+bitbake-layers add-layer ../layers/meta-openembedded/meta-networking ../layers/meta-openembedded/meta-multimedia \
+    ../layers/meta-openembedded/meta-gnome ../meta-touch-display
 ```
 
 On the board (`ssh root@raspberrypi5.local`):
@@ -219,6 +238,25 @@ systemctl stop object-detector
 ros2 topic pub -r 5 /object_distance std_msgs/msg/Float32 "{data: 0.3}"   # loud
 ros2 topic pub -r 5 /object_distance std_msgs/msg/Float32 "{data: 1.5}"   # quiet
 ```
+
+## Touch screen and Camera app (`meta-touch-display`)
+
+`ros-touch-display-image` boots straight into GNOME on a 3.5" SPI touch screen (ILI9486 panel, 320×480, ADS7846
+touch, sold as "3.5inch RPi LCD (A)") plugged onto pins 1–26. GDM logs in the user `pi` automatically. Tap the
+**Camera** icon in the dash to see the camera frame with the detection boxes, the same picture as the live view on
+port 8080. Close the window to go back to the desktop. The dash also has **GNOME Web** (browser), **Files**,
+**Text Editor** (notes) and **Console**. Wi-Fi networks can be picked in GNOME's top-right menu (NetworkManager), and
+the clock shows Kyiv time. The detector keeps running and publishing `/object_distance`
+whether the app is open or not.
+
+The screen comes from `dtoverlay=piscreen,drm,rotate=0` (pins and details in
+[meta-touch-display/README.md](meta-touch-display/README.md)). It doesn't use the buzzer pins (GPIO 12/13). The
+app's source and tests are in [apps/detection_camera](apps/detection_camera/README.md).
+
+This image is bigger: 2 GiB are left free on the root partition, and it has zram swap for the 2 GB Pi. GNOME Settings
+is left out on purpose (see the layer README). In this image NetworkManager runs Wi-Fi instead of meta-rpi-base's
+`wifi-config`; it starts with the `WIFI_SSID` network from `local.conf`, and a network cable keeps working as a
+fallback.
 
 ## Changing things: rebuild the image or not?
 

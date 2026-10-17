@@ -1,0 +1,8 @@
+#!/usr/bin/env python3
+"""Starts the Camera app (the detector's live view). Installed on the board as /usr/bin/detection-camera."""
+
+import sys
+
+from detection_camera.app import main
+
+sys.exit(main())

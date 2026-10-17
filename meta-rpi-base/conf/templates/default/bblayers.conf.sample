@@ -12,6 +12,9 @@ BBLAYERS ?= " \
   ##OEROOT##/meta-yocto-bsp \
   ##OEROOT##/../meta-openembedded/meta-oe \
   ##OEROOT##/../meta-openembedded/meta-python \
+  ##OEROOT##/../meta-openembedded/meta-networking \
+  ##OEROOT##/../meta-openembedded/meta-multimedia \
+  ##OEROOT##/../meta-openembedded/meta-gnome \
   ##OEROOT##/../meta-raspberrypi \
   ##OEROOT##/../../meta-rpi-base \
   ##OEROOT##/../meta-ros/meta-ros-common \
@@ -20,4 +23,5 @@ BBLAYERS ?= " \
   ##OEROOT##/../../meta-ros-demo \
   ##OEROOT##/../../meta-object-detection \
   ##OEROOT##/../../meta-buzzer \
+  ##OEROOT##/../../meta-touch-display \
   "

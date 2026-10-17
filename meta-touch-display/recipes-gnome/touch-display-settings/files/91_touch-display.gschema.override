@@ -1,0 +1,9 @@
+# GNOME defaults for the 3.5" 320x480 touch screen.
+# GNOME's dialogs are made for bigger screens: at 100% text the bottom of e.g. the Power Off dialog (its buttons) is
+# below the screen edge. 80% text makes them fit (checked on the board).
+[org.gnome.desktop.interface]
+text-scaling-factor=0.8
+
+# The dash (favourites): Camera, the web browser (GNOME Web), Files, Text Editor and the terminal.
+[org.gnome.shell]
+favorite-apps=['io.github.nvovka1.DetectionCamera.desktop', 'org.gnome.Epiphany.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.TextEditor.desktop', 'org.gnome.Console.desktop']

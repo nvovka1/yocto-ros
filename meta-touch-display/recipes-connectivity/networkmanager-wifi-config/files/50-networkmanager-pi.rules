@@ -1,0 +1,8 @@
+// Let the desktop user (pi, logged in automatically on the touch screen) choose Wi-Fi networks and enter their
+// passwords in GNOME without an administrator password. Development image only.
+polkit.addRule(function (action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager.") === 0 &&
+            subject.user === "pi" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
