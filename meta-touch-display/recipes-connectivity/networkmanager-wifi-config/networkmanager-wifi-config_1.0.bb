@@ -1,13 +1,16 @@
 SUMMARY = "NetworkManager runs Wi-Fi, pre-configured with WIFI_SSID / WIFI_PASSWORD from local.conf"
 DESCRIPTION = "Hands wlan0 to NetworkManager (so networks can be picked in GNOME's Wi-Fi menu) and gives it the \
 network from local.conf, so the board is reachable over SSH on first boot, like with meta-rpi-base's wifi-config \
-(which this image leaves out: two managers on wlan0 would fight). The wired port stays with systemd-networkd."
+(which this image leaves out: two managers on wlan0 would fight). The wired port stays with systemd-networkd. \
+Also gives systemd-timesyncd a time server, so the clock is set without systemd-networkd running Wi-Fi."
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/MIT;md5=0835ade698e0bcf8506ecda2f7b4f302"
 
 SRC_URI = " \
     file://90-touch-display.conf \
     file://50-networkmanager-pi.rules \
+    file://90-touch-display-timesyncd.conf \
+    file://90-touch-display-wired.conf \
 "
 S = "${WORKDIR}"
 
@@ -34,8 +37,11 @@ def wifi_connection_uuid(d):
 
 WIFI_PSK = "${@wifi_psk(d)}"
 WIFI_CONNECTION_UUID = "${@wifi_connection_uuid(d)}"
-# Only the derived key goes into task signatures, not the plain password.
-do_install[vardepsexclude] += "WIFI_PASSWORD"
+# Task signatures (stamps, sstate siginfo, bitbake-dumpsig) record only the derived key, not the plain password:
+# WIFI_PSK's signature value is its expanded value, so bitbake does not follow it into wifi_psk() and WIFI_PASSWORD.
+# A new password still changes the key and rebuilds. (do_install[vardepsexclude] does not do this: the chain
+# do_install -> WIFI_PSK -> WIFI_PASSWORD is still followed.)
+WIFI_PSK[vardepvalue] = "${WIFI_PSK}"
 
 # polkit owns its rules folder (polkitd, mode 0700); create it the same way so the packages don't conflict.
 DEPENDS = "polkit"
@@ -49,11 +55,19 @@ do_install() {
     chown polkitd:root ${D}${datadir}/polkit-1/rules.d
     install -m 0644 ${WORKDIR}/50-networkmanager-pi.rules ${D}${datadir}/polkit-1/rules.d/
 
+    # Clock: systemd-timesyncd needs a time server and an "online" verdict from systemd-networkd, which only sees the
+    # wired port now. Both used to come with systemd-networkd running Wi-Fi.
+    install -d ${D}${sysconfdir}/systemd/timesyncd.conf.d
+    install -m 0644 ${WORKDIR}/90-touch-display-timesyncd.conf ${D}${sysconfdir}/systemd/timesyncd.conf.d/90-touch-display.conf
+    install -d ${D}${sysconfdir}/systemd/network/80-wired.network.d
+    install -m 0644 ${WORKDIR}/90-touch-display-wired.conf ${D}${sysconfdir}/systemd/network/80-wired.network.d/90-touch-display.conf
+
     if [ -z "${WIFI_SSID}" ]; then
         bbnote "WIFI_SSID is not set: no Wi-Fi network pre-configured, pick one on the screen"
         return
     fi
-    install -d -m 0700 ${D}${sysconfdir}/NetworkManager/system-connections
+    # Same mode as networkmanager-daemon's own copy of this directory (else the packages conflict); the file is 0600.
+    install -d ${D}${sysconfdir}/NetworkManager/system-connections
     printf '%s\n' \
         '[connection]' \
         'id=${WIFI_SSID}' \
@@ -79,4 +93,5 @@ do_install() {
     chmod 0600 ${D}${sysconfdir}/NetworkManager/system-connections/wifi.nmconnection
 }
 
+FILES:${PN} += "${datadir}/polkit-1/rules.d"
 RDEPENDS:${PN} = "networkmanager-daemon networkmanager-wifi polkit"

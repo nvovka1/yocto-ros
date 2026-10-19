@@ -1,0 +1,27 @@
+From: Volodymyr Blahodyr <vblahodyr@colemanrg.com>
+Subject: [PATCH] drm/tiny: ili9486: give the mode a real pixel clock
+
+DRM_SIMPLE_MODE sets the pixel clock to 1 kHz only to pass mode validation,
+which makes the mode's refresh rate 0.0065 Hz. GNOME's compositor (mutter
+46) times its frames from that rate, so after a window opens it waits about
+154 seconds before drawing it again: a video window shows one still picture
+for minutes. Report about 30 Hz instead.
+
+Upstream-Status: Pending
+
+--- a/drivers/gpu/drm/tiny/ili9486.c	2026-10-17 16:41:32.779077267 +0000
++++ b/drivers/gpu/drm/tiny/ili9486.c	2026-10-17 16:41:32.829420769 +0000
+@@ -163,7 +163,12 @@
+ };
+ 
+ static const struct drm_display_mode waveshare_mode = {
+-	DRM_SIMPLE_MODE(480, 320, 73, 49),
++	/*
++	 * Not DRM_SIMPLE_MODE: its placeholder pixel clock (1 kHz) gives a refresh
++	 * rate of 0.0065 Hz, and GNOME's compositor (mutter) then waits 154 s
++	 * between frames. Report about 30 Hz (480 x 320 x 30 = 4608 kHz) instead.
++	 */
++	__DRM_MODE_INIT(480 * 320 * 30 / 1000, 480, 320, 73, 49),
+ };
+ 
+ DEFINE_DRM_GEM_DMA_FOPS(ili9486_fops);

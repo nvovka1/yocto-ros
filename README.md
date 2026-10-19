@@ -249,7 +249,7 @@ port 8080. Close the window to go back to the desktop. The dash also has **GNOME
 the clock shows Kyiv time. The detector keeps running and publishing `/object_distance`
 whether the app is open or not.
 
-The screen comes from `dtoverlay=piscreen,drm,rotate=0` (pins and details in
+The screen comes from `dtoverlay=piscreen,drm,rotate=0,invx` (`invx`: the touch is mirrored otherwise; pins and details in
 [meta-touch-display/README.md](meta-touch-display/README.md)). It doesn't use the buzzer pins (GPIO 12/13). The
 app's source and tests are in [apps/detection_camera](apps/detection_camera/README.md).
 

@@ -22,8 +22,11 @@ def wifi_psk(d):
     return hashlib.pbkdf2_hmac('sha1', password.encode(), ssid.encode(), 4096, 32).hex()
 
 WIFI_PSK = "${@wifi_psk(d)}"
-# Only the derived key goes into task signatures, not the plain password.
-do_install[vardepsexclude] += "WIFI_PASSWORD"
+# Task signatures (stamps, sstate siginfo, bitbake-dumpsig) record only the derived key, not the plain password:
+# WIFI_PSK's signature value is its expanded value, so bitbake does not follow it into wifi_psk() and WIFI_PASSWORD.
+# A new password still changes the key and rebuilds. (do_install[vardepsexclude] does not do this: the chain
+# do_install -> WIFI_PSK -> WIFI_PASSWORD is still followed.)
+WIFI_PSK[vardepvalue] = "${WIFI_PSK}"
 
 inherit allarch
 
